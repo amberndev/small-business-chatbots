@@ -5,9 +5,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: "html",
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3010",
     trace: "on-first-retry",
   },
   projects: [
@@ -17,13 +17,14 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      use: { ...devices["iPhone SE"], viewport: { width: 375, height: 667 } },
+      use: { ...devices["iPhone SE"], defaultBrowserType: "chromium", viewport: { width: 375, height: 667 } },
     },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "npm run dev -- --port 3010",
+    url: "http://localhost:3010",
+    reuseExistingServer: false,
+    env: { OPENROUTER_API_KEY: "", DATABASE_URL: "", TRUST_PROXY: "true" },
     timeout: 120_000,
   },
 });
