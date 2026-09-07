@@ -54,8 +54,9 @@ Portfólio/case de três chatbots configuráveis para pequenos negócios (Dental
 ### Verificação registrada no runbook (último ciclo)
 73 testes unit/integration + 12 E2E desktop/mobile passando; typecheck e build de produção OK; lint com 4 avisos não bloqueantes de `next/image`. Verificação pública em Chromium: label USD, vídeo `/properties/willow.mp4`, scroll até o assistente, sem overflow horizontal em 375px, as 4 rotas públicas em HTTP 200.
 
-### Não commitado de propósito
-- `.codex/`, e arquivos de 0 byte de redirecionamento quebrado (`'`, `8192`). Lixo local.
+### Limpeza (2026-09-07)
+- Arquivos de 0 byte de redirecionamento de shell quebrado (`'`, `8192`) apagados — eram só locais, nunca chegaram ao git.
+- `.codex/` continua fora do git de propósito (config local do Codex CLI).
 
 ---
 
