@@ -17,7 +17,7 @@ function value(field: LeadFieldSpec) {
 async function collect(repository: MemoryRepository, chatbotId: ChatbotId, intent: string, previous: string | null = null) {
   let result = await chat({ chatbotId, sessionId: previous, message: intent, consentAcknowledged: true }, repository);
   const session = (await repository.get(result.sessionId))!;
-  for (const field of flowFields(session)) result = await chat({ chatbotId, sessionId: session.id, message: value(field), consentAcknowledged: true }, repository);
+  for (const field of flowFields(session)) { const day = result.schedule?.days.find(day => day.date === result.schedule?.selectedDate) ?? result.schedule?.days.find(day => day.slots.some(slot => slot.available)); const message = field.key === "date" && day ? day.date : field.key === "period" && day ? day.slots.find(slot => slot.available)!.time : value(field); result = await chat({ chatbotId, sessionId: session.id, message, consentAcknowledged: true }, repository); }
   return result;
 }
 it.each(Object.keys(chatbots) as ChatbotId[])("collects, reviews and privately confirms all flows for %s", async (chatbotId) => {
@@ -47,6 +47,23 @@ it("edits and cancels without recording an unconfirmed request", async () => {
   expect((await repository.get(review.sessionId))!.fields).toEqual({});
   expect((await send("Cancel")).stateKind).toBe("idle");
   expect(repository.requests.size).toBe(0);
+});
+it("changes the calendar selection while preserving contact details and rejects blocked slots", async () => {
+  const repository = new MemoryRepository();
+  const review = await collect(repository, "dental", "Book an appointment");
+  const send = (message: string) => chat({ chatbotId: "dental", sessionId: review.sessionId, message, consentAcknowledged: true }, repository);
+  const changed = await send("Change date");
+  expect(changed.form?.key).toBe("date");
+  expect((await repository.get(review.sessionId))!.fields.name).toBeDefined();
+  expect((await repository.get(review.sessionId))!.fields.date).toBeUndefined();
+  const day = changed.schedule!.days.find(day => day.slots.some(slot => slot.available))!;
+  await send(day.date);
+  const rejected = await send(day.slots.find(slot => !slot.available)!.time);
+  expect(rejected.form?.key).toBe("period");
+  expect(rejected.reply.text).toMatch(/unavailable/);
+  const updated = await send(day.slots.find(slot => slot.available)!.time);
+  expect(updated.summary?.["Preferred date"]).toBe(day.date);
+  expect((await send("Confirm")).outcome).toBe("booking");
 });
 it("preserves state on invalid input and intercepts injection mid-collection", async () => {
   const repository = new MemoryRepository();

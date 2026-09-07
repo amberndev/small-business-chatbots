@@ -6,7 +6,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 const cases = [
-  { slug: "dental", title: "BrightSmile Dental", start: "Book an appointment", values: ["Alex Example", "0400000000", "Cleaning", "2027-10-10", "Morning"] },
+  { slug: "dental", title: "BrightSmile Dental", start: "Book an appointment", values: ["Alex Example", "0400000000", "Cleaning"] },
   { slug: "real-estate", title: "Harbor Homes", start: "Find a property", values: ["Rent", "Riverside", "AUD 500 per week", "0", "1–3 months", "alex@example.com"] },
   { slug: "home-services", title: "FixRight Home Services", start: "Request a quote", values: ["Plumbing", "A dripping fictional tap", "Riverside", "Urgent but no immediate danger", "Morning", "Alex Example", "alex@example.com"] },
 ];
@@ -24,12 +24,14 @@ for (const demo of cases) {
       await page.getByRole("button", { name: "Send message" }).click();
       await expect(input).toBeEnabled();
     }
+    if (demo.slug === "dental") { expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]); await page.locator(".calendar-days button:enabled").first().click(); await expect(page.locator(".time-slots button:disabled").first()).toBeVisible(); await page.locator(".time-slots button:enabled").first().click(); }
     await expect(page.getByRole("heading", { name: "Review before confirming" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Review your request" })).toContainText(demo.slug === "real-estate" ? "alex@example.com" : "Alex");
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(axe.violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (testInfo.project.name === "chromium") await page.screenshot({ path: `public/screenshots/${demo.slug}.png`, fullPage: true });
+    if (demo.slug === "dental") { await page.getByRole("button", { name: "Change date or time" }).click(); await page.locator(".calendar-days button:enabled").last().click(); await page.locator(".time-slots button:enabled").last().click(); await expect(page.getByRole("region", { name: "Review your request" })).toContainText("Alex"); }
     await page.getByRole("button", { name: "Confirm request", exact: true }).click();
     await expect(page.getByRole("heading", { name: "✓ Demo request recorded" })).toBeVisible();
     await page.getByRole("button", { name: "Restart conversation" }).click();
@@ -41,7 +43,9 @@ for (const demo of cases) {
 test("case links, disclosure and accessibility", async ({ page }) => {
   await page.goto("/selected-work/small-business-chatbots");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("AI Chatbots for");
-  await expect(page.getByText("Typical implementation estimate:")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tell us what your first response needs to do." })).toBeVisible();
+  await expect(page.getByRole("link", { name: /WhatsApp/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "vinicius@ambern.dev" })).toBeVisible();
   await expect(page.getByText("Portfolio demonstration created by Ambern.", { exact: false })).toBeVisible();
   for (const demo of cases) await expect(page.locator(`a[href='/demos/${demo.slug}-chatbot']`)).toBeVisible();
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);

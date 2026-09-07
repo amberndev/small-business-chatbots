@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/chat/route";
 import { clearRateLimits } from "@/lib/security/validation";
 
-beforeEach(() => { clearRateLimits(); vi.stubEnv("OPENROUTER_API_KEY", ""); vi.stubEnv("DATABASE_URL", ""); vi.stubEnv("TRUST_PROXY", "false"); });
+beforeEach(() => { clearRateLimits(); vi.stubEnv("OPENROUTER_API_KEY", ""); vi.stubEnv("DATABASE_URL", ""); vi.stubEnv("TRUST_PROXY", "false"); vi.stubEnv("APP_ORIGIN", ""); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 const valid = { chatbotId: "dental", sessionId: null, message: "hours", consentAcknowledged: true };
 const request = (body: unknown = valid, headers: Record<string, string> = {}) => new Request("http://localhost/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -20,6 +20,19 @@ it("rejects unsupported content type, malformed JSON and cross-origin callers", 
   expect((await POST(request(valid, { "Content-Type": "text/plain" }))).status).toBe(415);
   expect((await POST(new Request("http://localhost/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{" }))).status).toBe(400);
   expect((await POST(request(valid, { origin: "https://attacker.example" }))).status).toBe(403);
+});
+it("accepts the public HTTPS origin behind an internal HTTP proxy", async () => {
+  expect((await POST(request(valid, { origin: "https://chatbots.ambern.dev" }))).status).toBe(200);
+});
+it("supports a configured public origin", async () => {
+  vi.stubEnv("APP_ORIGIN", "https://preview.example");
+  expect((await POST(request(valid, { origin: "https://preview.example" }))).status).toBe(200);
+  expect((await POST(request(valid, { origin: "https://chatbots.ambern.dev" }))).status).toBe(403);
+});
+it("rejects spoofed proxy headers and lookalike origins", async () => {
+  for (const origin of ["https://attacker.example", "https://chatbots.ambern.dev.attacker.example", "http://chatbots.ambern.dev", "null"]) {
+    expect((await POST(request(valid, { origin, "x-forwarded-host": new URL(origin === "null" ? "https://attacker.example" : origin).host, "x-forwarded-proto": "https" }))).status).toBe(403);
+  }
 });
 it("enforces actual body bytes even without a content-length header", async () => {
   expect((await POST(request({ ...valid, message: "a".repeat(9000) }))).status).toBe(413);

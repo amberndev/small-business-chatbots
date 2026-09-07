@@ -13,7 +13,10 @@ export async function POST(request: Request) {
   let lock: string | undefined;
   try {
     const origin = request.headers.get("origin");
-    if (origin && origin !== new URL(request.url).origin) return error("INVALID_REQUEST", "Cross-origin requests are not supported.", 403);
+    // TLS terminates at the proxy, so request.url may contain the internal HTTP origin.
+    // Use an explicit public origin instead of trusting client-controlled forwarded headers.
+    const publicOrigin = new URL(process.env.APP_ORIGIN || "https://chatbots.ambern.dev").origin;
+    if (origin && origin !== new URL(request.url).origin && origin !== publicOrigin) return error("INVALID_REQUEST", "Cross-origin requests are not supported.", 403);
     // Default bucket cannot be bypassed by spoofing proxy headers. Enable only behind a trusted, header-replacing proxy.
     const address = process.env.TRUST_PROXY === "true" ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "local";
     const ipKey = createHash("sha256").update(address).digest("hex");

@@ -5,6 +5,8 @@ export const chatRequestSchema = z.object({
   consentAcknowledged: z.literal(true),
 }).strict();
 export const chatResponseSchema = z.object({
+  form: z.object({ key: z.string(), label: z.string(), step: z.number().int().positive(), total: z.number().int().positive() }).optional(),
+  schedule: z.object({ timeZone: z.string(), selectedDate: z.string().optional(), days: z.array(z.object({ date: z.string(), slots: z.array(z.object({ time: z.string(), available: z.boolean() })) })) }).optional(),
   sessionId: z.uuid(), reply: z.object({ role: z.literal("assistant"), text: z.string().min(1).max(4000) }),
   stateKind: z.string(), quickReplies: z.array(z.string()), summary: z.record(z.string(), z.string()).optional(),
   outcome: z.enum(["lead", "booking", "handoff"]).optional(), demoMode: z.boolean(),

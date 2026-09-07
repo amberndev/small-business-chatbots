@@ -79,6 +79,8 @@ export interface ChatRequest {
 }
 
 export interface ChatResponse {
+  form?: { key: string; label: string; step: number; total: number };
+  schedule?: { timeZone: string; selectedDate?: string; days: import("@/lib/booking/availability").AvailabilityDay[] };
   sessionId: string;
   reply: { role: "assistant"; text: string };
   stateKind: string;                        // kind da FSM (para a UI renderizar SummaryCard/SuccessState)
