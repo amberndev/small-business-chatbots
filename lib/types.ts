@@ -16,6 +16,7 @@ export type ChatbotId = "dental" | "real-estate" | "home-services";
 export interface ChatbotConfig {
   id: ChatbotId;
   businessName: string;              // ex.: "BrightSmile Dental" (fictício)
+  assistantName?: string;            // nome da persona (ex.: "Bia")
   tagline: string;
   theme: ChatbotTheme;               // identidade visual (§6.3)
   systemPrompt: string;              // prompt base, inclui restrições (ex.: recusa médica)
@@ -27,7 +28,9 @@ export interface ChatbotConfig {
   demoScript: DemoScriptEntry[];     // respostas determinísticas do DEMO MODE
 }
 
-export interface KnowledgeEntry { topic: string; question: string; answer: string; keywords: string[]; }
+// `answer` is the English (canonical) answer; `answerPt` is the optional PT-BR
+// variant. The engine picks by the visitor's detected language.
+export interface KnowledgeEntry { topic: string; question: string; answer: string; answerPt?: string; keywords: string[]; }
 export interface LeadFieldSpec { key: string; label: string; required: boolean; validate: "text" | "phone" | "email" | "number" | "enum"; options?: string[]; }
 export interface GuardrailSpec { refusalTopics: string[]; refusalMessage: string; }
 export interface DemoScriptEntry { match: RegExp | string; response: string; intent: Intent; }
@@ -113,5 +116,5 @@ export interface ChatErrorResponse {
 
 export type ChatbotClientConfig = Pick<
   ChatbotConfig,
-  "id" | "businessName" | "tagline" | "theme" | "quickReplies"
+  "id" | "businessName" | "assistantName" | "tagline" | "theme" | "quickReplies"
 >;

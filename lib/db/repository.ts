@@ -1,10 +1,12 @@
 import type { ChatbotId, ConversationState } from "@/lib/types";
+import type { Lang } from "@/lib/i18n";
 
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 export interface Session {
   id: string;
   chatbotId: ChatbotId;
   state: ConversationState;
+  lang?: Lang;                       // detected conversation language (sticky)
   flow: "lead" | "booking" | "handoff";
   fields: Record<string, string>;
   requestId?: string;

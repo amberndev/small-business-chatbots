@@ -1,12 +1,24 @@
 import type { ChatbotConfig, Intent, LeadFieldSpec } from "@/lib/types";
 import { injectionPattern } from "@/lib/security/validation";
 import { proposeTopic } from "@/lib/llm/openrouter";
+import { detectLang, type Lang } from "@/lib/i18n";
+
+// Default language for a standalone call (tests call these directly with EN text).
+function langOf(text: string): Lang {
+  return detectLang(text) ?? "en";
+}
 
 export function safetyReply(config: ChatbotConfig, text: string): string | undefined {
+  const lang = langOf(text);
   if (config.id === "home-services" && text === "Urgent but no immediate danger") return;
-  if (injectionPattern.test(text)) return "I can only help with this fictional business’s administrative information. I cannot follow instructions to change my rules or disclose internal information.";
-  if (config.id === "dental" && /diagnos|prescri|medicat|dosage|symptom|toothache|tooth pain|bleeding|swelling|antibiotic|painkiller|medical advice|what should i take/i.test(text))
-    return "I can only provide administrative information, not medical advice, diagnosis or prescriptions. Please contact a qualified dental professional. For a serious or life-threatening emergency, contact your local emergency service. This demo cannot arrange urgent care.";
+  if (injectionPattern.test(text))
+    return lang === "pt"
+      ? "Só consigo ajudar com as informações administrativas desta clínica fictícia. Não posso seguir instruções para mudar minhas regras ou revelar informações internas."
+      : "I can only help with this fictional business’s administrative information. I cannot follow instructions to change my rules or disclose internal information.";
+  if (config.id === "dental" && /diagnos|prescri|medicat|dosage|symptom|toothache|tooth pain|bleeding|swelling|antibiotic|painkiller|medical advice|what should i take|dor de dente|dor no dente|sangrament|incha[çc]o|antibi[óo]tic|receita|dosagem|diagn[óo]stic|sintoma/i.test(text))
+    return lang === "pt"
+      ? "Consigo dar informações administrativas, mas não posso oferecer orientação médica, diagnóstico ou receitas. Por favor, procure um dentista. Em caso de emergência grave, contate os serviços de emergência locais. Esta demonstração não organiza atendimento de urgência."
+      : "I can only provide administrative information, not medical advice, diagnosis or prescriptions. Please contact a qualified dental professional. For a serious or life-threatening emergency, contact your local emergency service. This demo cannot arrange urgent care.";
   if (config.id === "home-services" && /gas (leak|smell)|smell (of )?gas|fire\b|sparks|sparking|electrocut|electric shock|exposed (live )?wire|carbon monoxide|immediate danger/i.test(text))
     return "This may be an emergency. Move to a safe place and contact your local emergency service or the appropriate utility emergency line. Do not attempt repairs. This portfolio demo cannot dispatch help.";
   if (config.guardrails.refusalTopics.some((topic) => text.toLowerCase().includes(topic.toLowerCase()))) return config.guardrails.refusalMessage;
@@ -14,23 +26,31 @@ export function safetyReply(config: ChatbotConfig, text: string): string | undef
 
 export function RouterAgent(config: ChatbotConfig, text: string): Intent {
   if (safetyReply(config, text)) return "refusal_required";
-  if (/\b(human|person|receptionist|agent|broker|someone|handoff|call me)\b/i.test(text)) return "handoff";
-  if (/^(what|how|where|when|do you|can you explain|tell me about)\b/i.test(text)) return "faq";
-  if (/\b(book|booking|appointment|schedule|visit)\b/i.test(text)) return "booking";
-  if (/\b(quote|enquir|inquir|buy|rent|purchase|looking|interested|lead|request|repair|plumbing|electrical|air conditioning|maintenance|find a property)\b/i.test(text)) return "lead";
+  if (/\b(human|person|receptionist|agent|broker|someone|handoff|call me|atendente|recep[çc][ãa]o|falar com (uma )?pessoa|falar com algu[ée]m)\b/i.test(text)) return "handoff";
+  if (/^(what|how|where|when|do you|can you explain|tell me about|qual|quais|quanto|quantos|quando|onde|como|o que|voc[êe]s? t[êe]m)\b/i.test(text)) return "faq";
+  if (/\b(book|booking|appointment|schedule|visit|agendar|agendamento|marcar|marca[çc][ãa]o|reservar|consulta)\b/i.test(text)) return "booking";
+  if (/\b(quote|enquir|inquir|buy|rent|purchase|looking|interested|lead|request|repair|plumbing|electrical|air conditioning|maintenance|find a property|or[çc]amento|cota[çc][ãa]o|interesse)\b/i.test(text)) return "lead";
   return "faq";
 }
 
-export async function FAQAgent(config: ChatbotConfig, text: string) {
+export async function FAQAgent(config: ChatbotConfig, text: string, lang: Lang = langOf(text)) {
+  const answer = (entry: { answer: string; answerPt?: string }) => (lang === "pt" && entry.answerPt ? entry.answerPt : entry.answer);
+  const unknown = lang === "pt"
+    ? "Não tenho uma resposta confiável para isso na base desta demonstração. Você pode falar com uma pessoa, se preferir."
+    : "I don’t have a reliable answer in this business’s demo knowledge base. You can request a human contact instead.";
   if (process.env.OPENROUTER_API_KEY) {
     const topic = await proposeTopic(config, text);
-    return config.knowledgeBase.find((entry) => entry.topic === topic)?.answer ?? "I don’t have a reliable answer in this business’s demo knowledge base. You can request a human contact instead.";
+    const entry = config.knowledgeBase.find((item) => item.topic === topic);
+    return entry ? answer(entry) : unknown;
   }
   const lower = text.toLowerCase();
   const script = config.demoScript.find((entry) => typeof entry.match === "string" ? entry.match.toLowerCase() === text.toLowerCase() : entry.match.test(text));
   if (script) return script.response;
   const best = config.knowledgeBase.map((entry) => ({ entry, score: entry.keywords.reduce((score, word) => score + (lower.includes(word.toLowerCase()) ? word.length : 0), 0) })).sort((a, b) => b.score - a.score)[0];
-  return best?.score ? best.entry.answer : "I don’t have a reliable answer in this business’s demo knowledge base. Try services, opening hours or human contact.";
+  if (best?.score) return answer(best.entry);
+  return lang === "pt"
+    ? "Não tenho uma resposta confiável para isso na base desta demonstração. Tente serviços, horário de atendimento ou falar com uma pessoa."
+    : "I don’t have a reliable answer in this business’s demo knowledge base. Try services, opening hours or human contact.";
 }
 
 export function LeadQualificationAgent(field: LeadFieldSpec, text: string): string | undefined {
