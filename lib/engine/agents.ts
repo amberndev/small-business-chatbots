@@ -68,11 +68,12 @@ export function LeadQualificationAgent(field: LeadFieldSpec, text: string): stri
 }
 
 export function BookingAgent(config: ChatbotConfig): LeadFieldSpec[] {
-  const fields = config.leadFields.filter(field => !["date", "period", "time"].includes(field.key));
-  if (!fields.some((field) => /service/i.test(field.key))) fields.push({ key: "service", label: "Preferred service", required: true, validate: "enum", options: config.bookingServices });
-  if (!fields.some((field) => /date|day/i.test(field.key))) fields.push({ key: "date", label: "Preferred day (a future date or weekday)", required: true, validate: "text" });
-  if (!fields.some((field) => /period|time/i.test(field.key))) fields.push({ key: "period", label: "Preferred period", required: true, validate: "enum", options: ["Morning", "Afternoon"] });
-  return fields;
+  // Owner-specified guided order: Service -> Day -> Time -> contact details.
+  const contact = config.leadFields.filter(field => !["service", "date", "period", "time"].includes(field.key));
+  const service = config.leadFields.find(field => /service/i.test(field.key)) ?? { key: "service", label: "Preferred service", required: true, validate: "enum" as const, options: config.bookingServices };
+  const date: LeadFieldSpec = { key: "date", label: "Preferred day (a future date or weekday)", required: true, validate: "text" };
+  const period: LeadFieldSpec = { key: "period", label: "Preferred period", required: true, validate: "enum", options: ["Morning", "Afternoon"] };
+  return [service, date, period, ...contact];
 }
 
 export function HumanHandoffAgent(): LeadFieldSpec[] {

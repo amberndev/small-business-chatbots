@@ -69,6 +69,11 @@ it("preserves state on invalid input and intercepts injection mid-collection", a
   const repository = new MemoryRepository();
   const first = await chat({ chatbotId: "dental", sessionId: null, message: "Book an appointment", consentAcknowledged: true }, repository);
   const send = (message: string) => chat({ chatbotId: "dental", sessionId: first.sessionId, message, consentAcknowledged: true }, repository);
+  // Guided order is Service -> Day -> Time -> Name -> Phone; walk to the phone field.
+  const svc = await send("Cleaning");
+  const day = svc.schedule!.days.find(item => item.slots.some(slot => slot.available))!;
+  await send(day.date);
+  await send(day.slots.find(slot => slot.available)!.time);
   await send("Alex Example");
   expect((await send("not-a-phone")).reply.text).toMatch(/phone/);
   const before = await repository.get(first.sessionId);

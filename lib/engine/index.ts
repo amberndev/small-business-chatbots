@@ -19,7 +19,15 @@ export function flowFields(session: Session): LeadFieldSpec[] {
   ];
   const config = chatbots[session.chatbotId];
   const fields = session.flow === "handoff" ? HumanHandoffAgent() : session.flow === "booking" ? BookingAgent(config) : config.leadFields;
-  return fields.map(field => field.key === "date" ? { ...field, label: fieldLabels[lang].date } : field.key === "period" && fields.some(item => item.key === "date") ? { ...field, label: fieldLabels[lang].period, validate: "text", options: undefined } : field);
+  const hasDate = fields.some(item => item.key === "date");
+  return fields.map(field => {
+    if (field.key === "period" && hasDate) return { ...field, label: fieldLabels[lang].period, validate: "text" as const, options: undefined };
+    if (field.key === "date") return { ...field, label: fieldLabels[lang].date };
+    // Only the dental demo is bilingual: localise the whole guided flow so no
+    // step or confirmation label leaks the other language.
+    if (session.chatbotId === "dental" && fieldLabels[lang][field.key]) return { ...field, label: fieldLabels[lang][field.key] };
+    return field;
+  });
 }
 
 export async function chat(input: ChatRequest, repository: ChatRepository): Promise<ChatResponse> {
@@ -99,7 +107,11 @@ export async function chat(input: ChatRequest, repository: ChatRepository): Prom
     if (invalid) { reply = invalid; quickReplies = field.options ?? []; }
     else {
       session.fields[field.key] = field.options?.find((option) => option.toLowerCase() === text.toLowerCase()) ?? text;
-      const next = session.state.nextFieldIndex + 1;
+      // Advance to the next field still missing. When "change date" sends the
+      // visitor back to the middle-of-flow date/time, already-collected details
+      // (service, name, phone) are skipped so we return straight to review.
+      let next = session.state.nextFieldIndex + 1;
+      while (next < fields.length && session.fields[fields[next].key] !== undefined) next++;
       if (next < fields.length) {
         session.state = { kind: "lead_qualification", collected: session.fields, nextFieldIndex: next };
         reply = copy.nextField(fields[next].label); quickReplies = fields[next].options ?? [];

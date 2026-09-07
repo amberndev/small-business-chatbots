@@ -6,7 +6,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 const cases = [
-  { slug: "dental", title: "BrightSmile Dental", start: "Book an appointment", values: ["Alex Example", "0400000000", "Cleaning"] },
+  { slug: "dental", title: "BrightSmile Dental", start: "Book an appointment", values: ["Cleaning"] },
   { slug: "real-estate", title: "Harbor Homes", start: "Find a property", values: ["Rent", "Riverside", "AUD 500 per week", "0", "1–3 months", "alex@example.com"] },
   { slug: "home-services", title: "FixRight Home Services", start: "Request a quote", values: ["Plumbing", "A dripping fictional tap", "Riverside", "Urgent but no immediate danger", "Morning", "Alex Example", "alex@example.com"] },
 ];
@@ -24,7 +24,19 @@ for (const demo of cases) {
       await page.getByRole("button", { name: "Send message" }).click();
       await expect(input).toBeEnabled();
     }
-    if (demo.slug === "dental") { expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]); await page.locator(".calendar-days button:enabled").first().click(); await expect(page.locator(".time-slots button:disabled").first()).toBeVisible(); await page.locator(".time-slots button:enabled").first().click(); }
+    if (demo.slug === "dental") {
+      expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations).toEqual([]);
+      await page.locator(".calendar-days button:enabled").first().click();
+      await expect(page.locator(".time-slots button:disabled").first()).toBeVisible();
+      await page.locator(".time-slots button:enabled").first().click();
+      // New guided order collects name and phone after day/time.
+      for (const value of ["Alex Example", "0400000000"]) {
+        const input = page.getByRole("textbox", { name: "Your message" });
+        await input.fill(value);
+        await page.getByRole("button", { name: "Send message" }).click();
+        await expect(input).toBeEnabled();
+      }
+    }
     await expect(page.getByRole("heading", { name: "Review before confirming" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Review your request" })).toContainText(demo.slug === "real-estate" ? "alex@example.com" : "Alex");
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();

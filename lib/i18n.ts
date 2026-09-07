@@ -44,8 +44,8 @@ export function langFromBrowser(tag: string | undefined | null): Lang {
 // ---------------------------------------------------------------------------
 
 export const fieldLabels: Record<Lang, Record<string, string>> = {
-  en: { name: "Your name", phone: "Phone number", service: "Service", date: "Preferred date", period: "Preferred time" },
-  pt: { name: "Seu nome", phone: "Telefone", service: "Serviço", date: "Data preferida", period: "Horário preferido" },
+  en: { name: "Your name", phone: "Phone number", service: "Service", date: "Preferred date", period: "Preferred time", reason: "Reason for contact", contact: "Email" },
+  pt: { name: "Seu nome", phone: "Telefone", service: "Serviço", date: "Data preferida", period: "Horário preferido", reason: "Motivo do contato", contact: "E-mail" },
 };
 
 // Display translations for enum quick-replies (value sent stays the config value).
